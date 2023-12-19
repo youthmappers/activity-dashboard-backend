@@ -53,7 +53,7 @@ This will generate the following files:
 ```
 
 ### 4. Create the PMTiles archive
-Using `tippecanoe` and `tile-join`, combine all of the `geojsonseq` files into a single PMTiles archive:
+Using `tippecanoe` and `tile-join`, combine all of the `geojsonseq` files into a single PMTiles archive (`ym_changests.pmtiles`)
 
 ```bash
 ./tiler.sh
@@ -63,6 +63,7 @@ Using `tippecanoe` and `tile-join`, combine all of the `geojsonseq` files into a
 Open the `Process Daily YM Stats Parquet Files.ipynb` notebook and run the necessary cells to generate: 
 
 ```
+- chapters_and_uids.jsonp
 - monthly_activity_all_time.json
 - monthly_activity_last_1200_days.json
 - monthly_activity_last_year.json
