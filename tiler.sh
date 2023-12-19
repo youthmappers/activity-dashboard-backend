@@ -5,8 +5,11 @@ tippecanoe -fo aggregated_by_zoom/z8.mbtiles -Z2 -z2 -l z8agg -P aggregated_by_z
 echo "Z10 Aggregation: "
 tippecanoe -fo aggregated_by_zoom/z10.mbtiles -Z3 -z5 -l z10agg -P aggregated_by_zoom/z10_daily.geojsonseq
 
-echo "Z15 Aggregation: "
+echo "Z15 Centroid Aggregation: "
 tippecanoe -fo aggregated_by_zoom/z15.mbtiles -Z6 -z6 -l z15agg -P aggregated_by_zoom/z15_daily.geojsonseq
 
+echo "Z15 Bounding Box Aggregation: "
+tippecanoe -fo aggregated_by_zoom/z15_polygons.mbtiles -Z6 -z6 -l z15agg_bbox -P aggregated_by_zoom/z15_daily_bboxes.geojsonseq
+
 echo "Bundling tiles into one pmtiles archive"
-tile-join -fo ym_changesets.pmtiles aggregated_by_zoom/z8.mbtiles aggregated_by_zoom/z10.mbtiles aggregated_by_zoom/z15.mbtiles
+tile-join -fo ym_changesets.pmtiles aggregated_by_zoom/z8.mbtiles aggregated_by_zoom/z10.mbtiles aggregated_by_zoom/z15.mbtiles aggregated_by_zoom/z15_polygons.mbtiles

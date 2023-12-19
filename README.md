@@ -1,8 +1,15 @@
-# activity-dashboard-backend
+YouthMappers Activity Dashboard Backend
+===
 
-<!-- Intro about the dashboard and how it works -->
+The YouthMappers activity dashboard at activity.youthmappers.org is powered by a series of `geojson`, `json`, `csv` files and a single `pmtiles` archive. 
 
-Create the latest daily statistics parquet files: 
+This repository contains the scripts to generate all of these files. 
+
+The list of YouthMappers available on AWS is updated 3x a week with the latest data from OSM Teams ([mapping.team](https://mapping.team)).
+
+### 1. Create the new partition
+Create the latest partition of the `daily_ym_stats` table with the following Amazon Athena query: 
+
 ```sql
 UNLOAD (
     SELECT * FROM youthmappers_daily_rollup
@@ -14,26 +21,63 @@ WITH (
 )
 ```
 
-Add the latest data as the newest partition
+Where `<DATE>` is equal to 
+```sql
+select date(max(created_at)) from changesets)`
+```
+
+Optionally, add the latest data as the newest partition to make it available for querying online
 ```sql
 ALTER TABLE daily_ym_stats ADD IF NOT EXISTS 
     PARTITION (ds='<DATE>')
 ```
 
-For the local DuckDB computation, sync the parquet files locally: 
-
+### 2. Download parquet files locally
+Run `aws s3 sync` to download the new partition. Be sure to remove any partitions that you don't want to include (they should expire on AWS fairly regularly).
 ```bash
 aws --profile=ym s3 sync s3://youthmappers-internal-us-east1/query_results/parquet/ parquet/
 ```
 
-Now run `queries.sql` in duckdb
+### 3. Run `queries.sql` with DuckDB
+From duckdb, run `.read queries.sql`
+
+This will generate the following files: 
+```
+- daily_activity.csv
+- daily_chapter_activity.geojson
+- aggreaged_by_zoom/
+  - z8_weekly.geojsonseq
+  - z10_daily.geojsonseq
+  - z15_daily.geojsonseq
+  - z15_daily_bbboxes.geojsonseq
+```
+
+### 4. Create the PMTiles archive
+Using `tippecanoe` and `tile-join`, combine all of the `geojsonseq` files into a single PMTiles archive:
+
+```bash
+./tiler.sh
+```
+
+### 5: Create the remaining files with Jupyter Notebook:
+Open the `Process Daily YM Stats Parquet Files.ipynb` notebook and run the necessary cells to generate: 
+
+```
+- monthly_activity_all_time.json
+- monthly_activity_last_1200_days.json
+- monthly_activity_last_year.json
+- top_edited_countries.json
+```
+
+Great, that's it, now just copy the files to the website repo.
+
+### 6. Move the relevant files to the website
+Run `./publish.sh` to move the files into `../activity-dashboard/data/`
 
 
+---
+For reference, these are the queries that generated the intermediate views that actually compute the `daily_ym_stats` table.
 
-
-
-
-For reference: 
 ```sql
 CREATE TABLE daily_ym_stats WITH(
     format='parquet',
@@ -45,10 +89,7 @@ CREATE TABLE daily_ym_stats WITH(
 )
 ```
 
-
-YouthMappers statistics are based on the following 2 views: 
-
-### 1. YouthMappers Daily Rollup
+#### YouthMappers Daily Rollup
 ```sql
 CREATE OR REPLACE VIEW "youthmappers_daily_rollup" AS 
 WITH
@@ -138,7 +179,7 @@ WITH
     ORDER BY _day DESC, uid DESC
 ```
 
-### 2. Changesets from known YouthMappers
+#### Changesets from known YouthMappers
 
 ```sql
 CREATE OR REPLACE VIEW "youthmapper_changesets" AS

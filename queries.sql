@@ -13,21 +13,21 @@ COPY(
         FROM READ_PARQUET('parquet/*/*', hive_partitioning=1)
     WHERE centroid IS NOT NULL
     GROUP BY _day ORDER BY _day ASC
-) 
-SELECT _day as day, 
-    AVG(all_feats) OVER(ORDER BY _day ROWS 7 PRECEDING) AS all_feats_rolling_avg, 
-    all_feats,
-    AVG(buildings) OVER(ORDER BY _day ROWS 7 PRECEDING) AS buildings_rolling_avg, 
-    buildings,
-    AVG(highways) OVER(ORDER BY _day ROWS 7 PRECEDING) AS highways_rolling_avg, 
-    highways,
-    AVG(amenities) OVER(ORDER BY _day ROWS 7 PRECEDING) AS amenities_rolling_avg, 
-    amenities,
-    AVG(uids) OVER(ORDER BY _day ROWS 7 PRECEDING) AS users_rolling_avg, 
-    uids as users,
-    AVG(chapters) OVER(ORDER BY _day ROWS 7 PRECEDING) AS chapters_rolling_avg, 
-    chapters
-FROM daily_aggregation ORDER BY _day ASC
+    )
+    SELECT _day as day, 
+        AVG(all_feats) OVER(ORDER BY _day ROWS 7 PRECEDING) AS all_feats_rolling_avg, 
+        all_feats,
+        AVG(buildings) OVER(ORDER BY _day ROWS 7 PRECEDING) AS buildings_rolling_avg, 
+        buildings,
+        AVG(highways) OVER(ORDER BY _day ROWS 7 PRECEDING) AS highways_rolling_avg, 
+        highways,
+        AVG(amenities) OVER(ORDER BY _day ROWS 7 PRECEDING) AS amenities_rolling_avg, 
+        amenities,
+        AVG(uids) OVER(ORDER BY _day ROWS 7 PRECEDING) AS users_rolling_avg, 
+        uids as users,
+        AVG(chapters) OVER(ORDER BY _day ROWS 7 PRECEDING) AS chapters_rolling_avg, 
+        chapters
+    FROM daily_aggregation ORDER BY _day ASC
 ) TO 'daily_activity.csv';
 
 COPY(
@@ -95,3 +95,24 @@ COPY(
     FROM read_parquet('parquet/*/*', hive_partitioning=1)
     WHERE centroid IS NOT NULL
 ) TO 'aggregated_by_zoom/z15_daily.geojsonseq' WITH (FORMAT GDAL, DRIVER "GeoJSONSeq");
+
+-- Write the per-user, per-tile, per-day bbox results:
+COPY(
+    SELECT
+        chapter_id,
+        CAST(epoch(_day) AS int) as timestamp,
+        edited_features + new_features AS all_feats,
+        edited_amenities + new_amenities AS amenities,
+        edited_buildings + new_buildings AS buildings,
+        edited_highways + new_highways AS highways,
+        ST_Envelope(
+            ST_Collect(
+                ARRAY[
+                    ST_Point(min_lon, min_lat),
+                    ST_Point(max_lon, max_lat)
+                ]
+            )
+        ) AS geometry
+    FROM read_parquet('parquet/*/*', hive_partitioning=1)
+    WHERE centroid IS NOT NULL
+) TO 'aggregated_by_zoom/z15_daily_bboxes.geojsonseq' WITH (FORMAT GDAL, DRIVER "GeoJSONSeq");
