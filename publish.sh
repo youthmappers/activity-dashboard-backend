@@ -1,7 +1,8 @@
 # Map and timeline files
 mv daily_activity.csv       ../activity-dashboard/data/daily_activity.csv
-mv ym_changesets.pmtiles    ../activity-dashboard/data/ym_changesets.pmtiles
 mv chapters_and_uids.jsonp  ../activity-dashboard/data/chapters_and_uids.jsonp
+
+mv *.pmtiles    ../activity-dashboard/data/
 
 # Numbers page files
 mv monthly_activity_all_time.json        ../activity-dashboard/data/monthly_activity_all_time.json
