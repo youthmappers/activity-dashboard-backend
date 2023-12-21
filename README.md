@@ -185,24 +185,29 @@ WITH
 ```sql
 CREATE OR REPLACE VIEW "youthmapper_changesets" AS
     WITH ym_changesets AS (
-        SELECT id, 
-        changesets.uid, 
-        split(tags['hashtags'], ';') AS hashtags, 
-        split(tags['created_by'], ' ')[1] AS created_by, 
-        date(changesets.created_at) AS _day, 
-        num_changes, 
-        ST_ASTEXT(ST_Point(((min_lon + max_lon) / 2), ((min_lat + max_lat) / 2))) AS center, 
-        bing_tile_quadkey(bing_tile_at(((min_lat + max_lat) / 2), ((min_lon + max_lon) / 2), 15)) AS quadkey, 
-        min_lat, 
-        min_lon, 
-        max_lat, 
-        max_lon, 
-        CASE 
-            WHEN ((min_lat <> max_lat) AND (min_lon <> max_lon)) THEN 
-                ST_AREA(to_spherical_geography(ST_ENVELOPE(ST_LINESTRING(ARRAY[ST_Point(min_lon, min_lat),ST_Point(max_lon, max_lat)])))) 
-            ELSE 
-                0 
-        END AS area
+        SELECT 
+            id, 
+            changesets.uid, 
+            split(tags['hashtags'], ';') AS hashtags, 
+            split(tags['created_by'], ' ')[1] AS created_by, 
+            date(changesets.created_at) AS _day, 
+            num_changes, 
+            ST_ASTEXT(ST_Point(((min_lon + max_lon) / 2), ((min_lat + max_lat) / 2))) AS center, 
+            bing_tile_quadkey(bing_tile_at(((min_lat + max_lat) / 2), ((min_lon + max_lon) / 2), 15)) AS quadkey, 
+            min_lat, 
+            min_lon, 
+            max_lat, 
+            max_lon, 
+            ST_DISTANCE(
+                to_spherical_geography(ST_Point(min_lon, min_lat)),
+	            to_spherical_geography(ST_Point(max_lon, max_lat))
+	        )/1000 AS diameter,
+            CASE 
+                WHEN ((min_lat <> max_lat) AND (min_lon <> max_lon)) THEN 
+                    ST_AREA(to_spherical_geography(ST_ENVELOPE(ST_LINESTRING(ARRAY[ST_Point(min_lon, min_lat),ST_Point(max_lon, max_lat)])))) 
+                ELSE 
+                    0 
+            END AS area
         FROM changesets INNER JOIN 
             youthmappers ON youthmappers.uid = changesets.uid
         WHERE changesets.created_at > date '2015-01-01'
@@ -237,4 +242,5 @@ CREATE OR REPLACE VIEW "youthmapper_changesets" AS
         ym_changesets
         INNER JOIN changeset_totals ON 
             ym_changesets.id = changeset_totals.changeset
+        WHERE ym_changesets.diameter < 1000
 ```
