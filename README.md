@@ -23,7 +23,7 @@ WITH (
 
 Where `<DATE>` is equal to 
 ```sql
-select date(max(created_at)) from changesets)`
+select date(max(created_at)) from changesets
 ```
 
 Optionally, add the latest data as the newest partition to make it available for querying online
