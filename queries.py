@@ -16,7 +16,7 @@ def main():
 
     parser.add_argument("-o", 
         "--output", 
-        default="aggregated_by_zoom",
+        default="query_results",
         help="Output directory"
     )
     args = parser.parse_args()
@@ -55,7 +55,12 @@ class YMController():
         self.ds = args.ds
         self.output = args.output
 
-        self.parquet_file = f"ym_{self.ds}.parquet"
+        if not os.path.exists(self.output):
+            os.mkdir(self.output)
+        if not os.path.exists(f"{self.output}/aggregated_by_zoom"):
+            os.mkdir(f"{self.output}/aggregated_by_zoom")
+
+        self.parquet_file = f"{self.output}/ym_{self.ds}.parquet"
         self.con = duckdb.connect()
 
     
@@ -65,8 +70,8 @@ class YMController():
             LOAD spatial;
             INSTALL aws; 
             LOAD aws;
-            -- INSTALL h3 FROM community;
-            -- LOAD h3;
+            INSTALL h3 FROM community;
+            LOAD h3;
             CALL load_aws_credentials('ym');
         """)
                 
@@ -76,7 +81,9 @@ class YMController():
             self.con.sql(f"""
                 COPY(
                     SELECT
-                        *
+                        *,
+                        ST_GeomFromWKB(centroid) as geometry,
+                        h3_latlng_to_cell(ST_Y(ST_GeomFromWKB(centroid)), ST_X(ST_GeomFromWKB(centroid)), 8) AS h3
                     FROM READ_PARQUET('s3://youthmappers-internal-us-east1/query_results/parquet/ds={self.ds}/*', hive_partitioning=1)
                 ) TO '{self.parquet_file}';
             """)
@@ -113,7 +120,7 @@ class YMController():
                     AVG(chapters) OVER(ORDER BY _day ROWS 7 PRECEDING) AS chapters_rolling_avg, 
                     chapters
                 FROM daily_aggregation ORDER BY _day ASC
-            ) TO 'daily_activity.csv';
+            ) TO '{self.output}/daily_activity.csv';
         """)
 
     def daily_chapter_activity(self, zoom_level: int=8):
@@ -144,7 +151,7 @@ class YMController():
                     GROUP BY _day, substr(quadkey,1,{zoom_level}), chapter
                 )
                 ORDER BY _day, chapter, q{zoom_level} ASC
-            ) TO 'daily_chapter_activity.geojson' WITH (FORMAT GDAL, DRIVER "GeoJSON");
+            ) TO '{self.output}/daily_chapter_activity.geojson' WITH (FORMAT GDAL, DRIVER "GeoJSON");
         """)
 
     def tile_level_weekly_summaries(self, zoom_level: int=8):
@@ -161,7 +168,7 @@ class YMController():
                 FROM READ_PARQUET('{self.parquet_file}')
                 WHERE centroid IS NOT NULL
                 GROUP BY date_trunc('week',_day), uid, substr(quadkey,1,{zoom_level})
-            ) TO 'aggregated_by_zoom/z{zoom_level}_weekly.geojsonseq' WITH (FORMAT GDAL, DRIVER "GeoJSONSeq");
+            ) TO '{self.output}/aggregated_by_zoom/z{zoom_level}_weekly.geojsonseq' WITH (FORMAT GDAL, DRIVER "GeoJSONSeq");
         """)
 
     def daily_level_tile_summaries(self):
@@ -178,7 +185,7 @@ class YMController():
                     ST_GeomFromWKB(centroid) AS geometry
                 FROM READ_PARQUET('{self.parquet_file}')
                 WHERE centroid IS NOT NULL
-            ) TO 'aggregated_by_zoom/z15_daily.geojsonseq' WITH (FORMAT GDAL, DRIVER "GeoJSONSeq");
+            ) TO '{self.output}/aggregated_by_zoom/z15_daily.geojsonseq' WITH (FORMAT GDAL, DRIVER "GeoJSONSeq");
         """)
 
     def daily_level_bbox(self):
@@ -201,7 +208,7 @@ class YMController():
                     ) AS geometry
                 FROM READ_PARQUET('{self.parquet_file}')
                 WHERE centroid IS NOT NULL
-            ) TO 'aggregated_by_zoom/z15_daily_bboxes.geojsonseq' WITH (FORMAT GDAL, DRIVER "GeoJSONSeq");
+            ) TO '{self.output}/aggregated_by_zoom/z15_daily_bboxes.geojsonseq' WITH (FORMAT GDAL, DRIVER "GeoJSONSeq");
         """)
 
 if __name__=='__main__':
