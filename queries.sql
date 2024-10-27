@@ -10,7 +10,7 @@ COPY(
             CAST(sum(edited_amenities) + sum(new_amenities) AS BIGINT) as amenities,
             COUNT(DISTINCT(uid)) as uids,
             COUNT(DISTINCT(chapter_id)) AS chapters
-        FROM READ_PARQUET('parquet/*/*', hive_partitioning=1)
+        FROM READ_PARQUET('s3://youthmappers-internal-us-east1/query_results/parquet/ds=2024-10-20/*', hive_partitioning=1)
     WHERE centroid IS NOT NULL
     GROUP BY _day ORDER BY _day ASC
     )
@@ -51,7 +51,7 @@ COPY(
             sum(new_highways + edited_highways) as highways,
             sum(new_features + edited_features) as all_feats,
             count(distinct(uid)) as mappers
-        FROM READ_PARQUET('parquet/*/*', hive_partitioning=1)
+        FROM READ_PARQUET('s3://youthmappers-internal-us-east1/query_results/parquet/ds=2024-10-20/*', hive_partitioning=1)
             WHERE centroid IS NOT NULL
         GROUP BY _day, substr(quadkey,1,8), chapter
     )
@@ -65,7 +65,7 @@ COPY(
         CAST(epoch(date_trunc('week',_day)) AS int) as timestamp,
         CAST(sum(edited_features) + sum(new_features) AS BIGINT) as all_feats,
         ST_CENTROID(ST_Union_Agg(ST_GeomFromWKB(centroid))) AS geometry
-    FROM read_parquet('parquet/*/*', hive_partitioning=1)
+    FROM READ_PARQUET('s3://youthmappers-internal-us-east1/query_results/parquet/ds=2024-10-20/*', hive_partitioning=1)
     WHERE centroid IS NOT NULL
     GROUP BY date_trunc('week',_day), uid, substr(quadkey,1,8)
 ) TO 'aggregated_by_zoom/z8_weekly.geojsonseq' WITH (FORMAT GDAL, DRIVER "GeoJSONSeq");
@@ -77,7 +77,7 @@ COPY(
         CAST(epoch(_day) AS int) as timestamp,
         CAST(sum(edited_features) + sum(new_features) AS BIGINT) as all_feats,
         ST_CENTROID(ST_Union_Agg(ST_GeomFromWKB(centroid))) AS geometry
-    FROM read_parquet('parquet/*/*', hive_partitioning=1)
+    FROM READ_PARQUET('s3://youthmappers-internal-us-east1/query_results/parquet/ds=2024-10-20/*', hive_partitioning=1)
     WHERE centroid IS NOT NULL
     GROUP BY _day, uid, substr(quadkey,1,10)
 ) TO 'aggregated_by_zoom/z10_daily.geojsonseq' WITH (FORMAT GDAL, DRIVER "GeoJSONSeq");
@@ -92,7 +92,7 @@ COPY(
         edited_buildings + new_buildings AS buildings,
         edited_highways + new_highways AS highways,
         ST_GeomFromWKB(centroid) AS geometry
-    FROM read_parquet('parquet/*/*', hive_partitioning=1)
+    FROM READ_PARQUET('s3://youthmappers-internal-us-east1/query_results/parquet/ds=2024-10-20/*', hive_partitioning=1)
     WHERE centroid IS NOT NULL
 ) TO 'aggregated_by_zoom/z15_daily.geojsonseq' WITH (FORMAT GDAL, DRIVER "GeoJSONSeq");
 
@@ -113,6 +113,6 @@ COPY(
                 ]
             )
         ) AS geometry
-    FROM read_parquet('parquet/*/*', hive_partitioning=1)
+    FROM READ_PARQUET('s3://youthmappers-internal-us-east1/query_results/parquet/ds=2024-10-20/*', hive_partitioning=1)
     WHERE centroid IS NOT NULL
 ) TO 'aggregated_by_zoom/z15_daily_bboxes.geojsonseq' WITH (FORMAT GDAL, DRIVER "GeoJSONSeq");
